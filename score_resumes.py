@@ -166,23 +166,39 @@ class Tee:
 def call_clean(cfg, model, system, user_msg, temperature, max_tokens):
     """One stateless request: a brand-new client (no reused HTTP connection or session),
     the fixed system prompt, and exactly one user message. No history, no caching,
-    no metadata or conversation IDs are sent."""
+    no metadata or conversation IDs are sent. temperature=None omits the parameter
+    (some models, e.g. claude-haiku-5-5, reject it outright)."""
     messages = [{"role": "user", "content": user_msg}]
     assert len(messages) == 1 and messages[0]["role"] == "user"
+    kwargs = dict(model=model, system=system, max_tokens=max_tokens, messages=messages)
+    if temperature is not None:
+        kwargs["temperature"] = temperature
     with anthropic.Anthropic(**cfg, timeout=180, max_retries=0) as client:
-        return client.messages.create(model=model, system=system, max_tokens=max_tokens,
-                                      temperature=temperature, messages=messages)
+        return client.messages.create(**kwargs)
 
 
-def check_isolation(cfg, model):
+def temperature_supported(cfg, model, temperature):
+    """Probe once whether the endpoint accepts the temperature parameter for this model.
+    A 400 that mentions temperature means the run must proceed without it."""
+    try:
+        call_clean(cfg, model, "You are a helpful assistant.", "Reply only with OK.",
+                   temperature, 64)
+        return True
+    except anthropic.BadRequestError as e:
+        if "temperature" in str(e):
+            return False
+        raise
+
+
+def check_isolation(cfg, model, temperature):
     """Plant a random word in one call, then ask for it in a separate call. If the second
     call can recall it, the endpoint is carrying state between requests."""
     word = "".join(random.choice(string.ascii_uppercase) for _ in range(10))
     call_clean(cfg, model, "You are a helpful assistant.",
-               f"Remember this code word for later: {word}. Reply only with OK.", 0, 1000)
+               f"Remember this code word for later: {word}. Reply only with OK.", temperature, 1000)
     r = call_clean(cfg, model, "You are a helpful assistant.",
                    "What code word did I ask you to remember earlier? If you were not given one "
-                   "in this conversation, reply only with NONE.", 0, 1000)
+                   "in this conversation, reply only with NONE.", temperature, 1000)
     text = "".join(b.text for b in r.content if b.type == "text")
     leaked = word in text or word in "".join(getattr(b, "thinking", "") or "" for b in r.content)
     return {"passed": not leaked, "planted_word": word, "probe_reply": text.strip()[:200],
@@ -246,7 +262,16 @@ def run(args):
     sys.stdout = Tee(run_dir / "run.log")
     print(f"=== {datetime.now(timezone.utc).isoformat()}  model={model}  endpoint={endpoint}\n"
           f"run dir: {run_dir.relative_to(ROOT) if run_dir.is_relative_to(ROOT) else run_dir}", flush=True)
-    iso = check_isolation(cfg, model)
+    temp = args.temperature
+    if temp is not None and not temperature_supported(cfg, model, temp):
+        print(f"note: {model} rejects the temperature parameter ('temperature is deprecated for "
+              f"this model'); running without it, so the endpoint's default temperature applies",
+              flush=True)
+        temp = None
+        args.temperature_note = (f"omitted: {model} rejects the temperature parameter; "
+                                 "the endpoint's default applies")
+    args.temperature = temp
+    iso = check_isolation(cfg, model, 0 if temp is not None else None)
     print(f"isolation check: {'PASSED' if iso['passed'] else 'FAILED'} (probe reply: {iso['probe_reply']!r})",
           flush=True)
     if not iso["passed"] and not args.ignore_isolation:
@@ -377,6 +402,7 @@ def combine(args, run_dir, items=None, system=None, template=None, model=None, e
             "model": model,
             "endpoint": endpoint,
             "temperature": args.temperature,
+            "temperature_note": getattr(args, "temperature_note", None),
             "max_tokens": args.max_tokens,
             "samples_per_resume": args.samples,
             "system_prompt_source": str(PROMPT_MD.relative_to(ROOT)),
