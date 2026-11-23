@@ -101,14 +101,15 @@ def build_items():
 
 def endpoint_config():
     load_dotenv(ROOT / ".env")
-    ep = os.environ["ANTHROPIC_ENDPOINT"].strip().rstrip("/")
+    ep = (os.environ.get("ANTHROPIC_ENDPOINT") or os.environ["OPEN_AI_ENDPOINT"]).strip().rstrip("/")
     base = ep
     for suffix in ("/messages", "/v1"):  # the SDK appends /v1/messages itself
         if base.endswith(suffix):
             base = base[:-len(suffix)]
     # Ollama needs no key, but the SDK refuses to send a request without one.
-    key = os.environ.get("ANTHROPIC_API_KEY", "").strip() or "no-key"
-    return {"base_url": base, "api_key": key}, os.environ["ANTHROPIC_MODEL"].strip(), ep
+    key = (os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("OPEN_AI_API_KEY", "")).strip() or "no-key"
+    model = (os.environ.get("ANTHROPIC_MODEL") or os.environ["OPEN_AI_MODEL"]).strip()
+    return {"base_url": base, "api_key": key}, model, ep
 
 
 ARC_MAX_WORKERS = 3
@@ -244,6 +245,14 @@ def run(args):
     system, template = load_prompt()
     posting = load_posting()
     cfg, model, endpoint = endpoint_config()
+    second_key = (os.environ.get("ANTHROPIC_API_KEY_2") or os.environ.get("OPEN_AI_API_KEY_2", "")).strip()
+    if "arc.vt.edu" in endpoint.lower() and args.workers > 10:
+        raise SystemExit("ARC permits at most 10 concurrent requests per user for this model; use --workers 10 or fewer.")
+    configs = [cfg]
+    if second_key:
+        if second_key == cfg["api_key"]:
+            raise SystemExit("ANTHROPIC_API_KEY_2 must be distinct from ANTHROPIC_API_KEY")
+        configs.append({**cfg, "api_key": second_key})
     run_dir = resolve_run_dir(args, model, endpoint)
     run_dir.mkdir(parents=True, exist_ok=True)
     if "arc.vt.edu" in (endpoint or "") and args.workers > ARC_MAX_WORKERS:
@@ -257,6 +266,12 @@ def run(args):
     if not iso["passed"] and not args.ignore_isolation:
         raise SystemExit("Endpoint recalled a word from a previous call; contexts are not clean. "
                          "Aborting (use --ignore-isolation to override).")
+    if len(configs) == 2:
+        second_iso = check_isolation(configs[1], model)
+        print(f"second key isolation check: {'PASSED' if second_iso['passed'] else 'FAILED'}", flush=True)
+        if not second_iso["passed"] and not args.ignore_isolation:
+            raise SystemExit("Second key failed the context-isolation check; aborting.")
+        iso["second_key_check"] = second_iso
     (run_dir / "isolation.json").write_text(json.dumps(iso, indent=2))
     items = build_items()
     if args.tier:
@@ -271,21 +286,22 @@ def run(args):
             r = json.loads(line)
             if r.get("status") in ("ok", "refusal", "malformed"):  # errors get retried
                 done.add((r["item_id"], r["sample"]))
-    jobs = [(it, s) for it in items for s in range(args.samples) if (it["item_id"], s) not in done]
+    jobs = [(it, s, index % len(configs)) for index, (it, s) in enumerate(
+        (it, s) for it in items for s in range(args.samples) if (it["item_id"], s) not in done)]
     print(f"{len(items)} resumes x {args.samples} samples; {len(done)} already done; {len(jobs)} to run "
-          f"(model={model}, temperature={args.temperature}, workers={args.workers})", flush=True)
+          f"(model={model}, temperature={args.temperature}, workers={args.workers}, keys={len(configs)})", flush=True)
 
     texts = {}
     lock = threading.Lock()
     counts = {"ok": 0, "other": 0}
 
     def work(job):
-        it, s = job
+        it, s, key_slot = job
         if it["file"] not in texts:
             texts[it["file"]] = (ROOT / it["file"]).read_text()
         msg = template.replace("<job_posting>", posting).replace("<resume>", texts[it["file"]])
-        rec = score_once(cfg, model, system, msg, args.temperature, args.max_tokens)
-        rec.update(item_id=it["item_id"], sample=s, file=it["file"])
+        rec = score_once(configs[key_slot], model, system, msg, args.temperature, args.max_tokens)
+        rec.update(item_id=it["item_id"], sample=s, file=it["file"], key_slot=key_slot + 1)
         if not args.keep_reasoning:
             rec.pop("reasoning", None)
         with lock:
@@ -293,8 +309,9 @@ def run(args):
                 f.write(json.dumps(rec) + "\n")
             counts["ok" if rec["status"] == "ok" else "other"] += 1
             n = counts["ok"] + counts["other"]
-            if n % 25 == 0 or n == len(jobs):
-                print(f"  {n}/{len(jobs)} done ({counts['other']} not ok)", flush=True)
+            print(f"  {len(done) + n}/{len(items) * args.samples} done; "
+                  f"{rec['item_id']} sample={s + 1} key={key_slot + 1} "
+                  f"status={rec['status']} score={rec.get('score', '-')}", flush=True)
         return rec
 
     with ThreadPoolExecutor(args.workers) as ex:

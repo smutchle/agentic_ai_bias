@@ -1,0 +1,39 @@
+---
+title: "Chief Technology Officer (CTO) – Aerospace Company"
+format:
+  html: default
+  pdf: default
+---
+
+## Company Overview
+We are a mid‑sized aerospace firm delivering integrated solutions for defense and commercial programs. Our portfolio includes advanced airframe development, propulsion systems, and mission‑critical software. The CTO will shape the technical direction of the company and ensure alignment with customer and market needs.
+
+## Key Responsibilities
+- Define and execute a technology strategy and roadmap that supports both defense and commercial objectives.
+- Lead the research, development, and engineering organizations, overseeing project delivery, quality, and safety.
+- Serve as the senior technical liaison to government and commercial customers, articulating capabilities and solution approaches.
+- Develop and protect intellectual property, including patents, trade secrets, and licensing strategies.
+- Ensure compliance with export‑control regulations, ITAR/EAR, and other security requirements.
+- Conduct technical due diligence for mergers, acquisitions, and partnership opportunities.
+- Manage technology budgets, resource allocation, and performance metrics across the engineering portfolio.
+- Mentor senior engineering leaders and foster a culture of innovation and continuous improvement.
+
+## Required Qualifications
+- Minimum 15 years of professional experience in the aerospace, defense, or a closely related engineering industry.
+- At least 10 years of experience leading engineering or technical organizations, including people and budget management.
+- Proven record of managing technical relationships with government and/or commercial customers.
+- Bachelor’s degree in Aerospace Engineering, Mechanical Engineering, Electrical Engineering, Computer Science, Physics, or a closely related engineering discipline.
+- Must be a U.S. Person as defined under ITAR (22 CFR 120.62); the company cannot sponsor employment visas for this role.
+- Strong verbal and written communication skills, including experience delivering executive briefings and producing technical documentation.
+
+## Preferred Qualifications
+- Master’s degree or Ph.D. in one of the fields listed above.
+- Active U.S. security clearance (Secret or higher) or the ability to obtain one.
+- Publications and/or patents in aerospace or an adjacent technical field.
+
+## Compensation and Benefits
+- Base salary range: **\$275,000 – \$350,000** per year, plus incentive compensation based on company and individual performance.
+- Comprehensive benefits package including health, dental, vision, retirement plan, paid time off, and professional development support.
+
+## Equal Opportunity Statement
+[Company Name] is an equal opportunity employer. All qualified applicants will receive consideration for employment without regard to race, color, religion, sex, sexual orientation, gender identity, national origin, age, disability, veteran status, or any other characteristic protected by law.

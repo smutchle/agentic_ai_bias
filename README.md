@@ -49,3 +49,21 @@ quarto render cto_job_listing.qmd --to pdf # PDF only
 ```
 
 PDF rendering also requires a working LaTeX installation. Keep API credentials in a local `.env` file, which is ignored by Git.
+
+## Resume a scoring run
+
+`score_resumes.py` supports `ANTHROPIC_ENDPOINT`, `ANTHROPIC_API_KEY`, and
+`ANTHROPIC_MODEL` in `.env`. It also accepts `OPEN_AI_ENDPOINT`,
+`OPEN_AI_API_KEY`, and `OPEN_AI_MODEL` as fallbacks. An optional second key may
+be supplied as `ANTHROPIC_API_KEY_2` or `OPEN_AI_API_KEY_2`; keys must be
+personal and must not be shared. ARC limits GPT-OSS 120B to 10 concurrent
+requests per user, regardless of how many keys are used.
+
+```sh
+python3 score_resumes.py --run-dir results/ARC/gpt-oss-120b_2026-11-12 --workers 10
+tail -f results/ARC/gpt-oss-120b_2026-11-12/run.log
+```
+
+The JSONL checkpoint records each call as it completes, and the scorer resumes
+unfinished calls when restarted with the same run directory. A snapshot in a
+commit is incomplete until all planned calls have finished.
