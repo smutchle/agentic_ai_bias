@@ -1,0 +1,149 @@
+=== 2026-11-17T16:21:34.482641+00:00  model=granite4.2:8b  endpoint=http://ads1.datasci.vt.edu:11434/v1/messages
+run dir: results/ollama/granite4.2-8b_2026-11-17
+isolation check: PASSED (probe reply: 'NONE')
+841 resumes x 3 samples; 0 already done; 2523 to run (model=granite4.2:8b, temperature=0.7, workers=8)
+=== 2026-11-17T16:23:40.357490+00:00  model=granite4.2:8b  endpoint=http://ads1.datasci.vt.edu:11434/v1/messages
+run dir: results/ollama/granite4.2-8b_2026-11-17
+isolation check: PASSED (probe reply: 'NONE')
+841 resumes x 3 samples; 12 already done; 2511 to run (model=granite4.2:8b, temperature=0.7, workers=8)
+  25/2511 done (0 not ok)
+  50/2511 done (0 not ok)
+  75/2511 done (0 not ok)
+  100/2511 done (0 not ok)
+  125/2511 done (0 not ok)
+  150/2511 done (0 not ok)
+  175/2511 done (0 not ok)
+  200/2511 done (0 not ok)
+  225/2511 done (0 not ok)
+  250/2511 done (0 not ok)
+  275/2511 done (0 not ok)
+  300/2511 done (0 not ok)
+  325/2511 done (0 not ok)
+  350/2511 done (5 not ok)
+  375/2511 done (8 not ok)
+  400/2511 done (13 not ok)
+  425/2511 done (13 not ok)
+  450/2511 done (13 not ok)
+  475/2511 done (13 not ok)
+=== 2026-11-17T18:27:05.428737+00:00  model=granite4.2:8b  endpoint=http://ads1.datasci.vt.edu:11434/v1/messages
+run dir: results/ollama/granite4.2-8b_2026-11-17
+isolation check: PASSED (probe reply: 'NONE')
+841 resumes x 3 samples; 475 already done; 2048 to run (model=granite4.2:8b, temperature=0.7, workers=8)
+  25/2048 done (0 not ok)
+  50/2048 done (0 not ok)
+  75/2048 done (0 not ok)
+  100/2048 done (0 not ok)
+  125/2048 done (0 not ok)
+  150/2048 done (3 not ok)
+  175/2048 done (4 not ok)
+  200/2048 done (5 not ok)
+  225/2048 done (6 not ok)
+=== 2026-11-17T20:31:05.976277+00:00  model=granite4.2:8b  endpoint=http://ads2.datasci.vt.edu:11434/v1/messages
+run dir: results/ollama/granite4.2-8b_2026-11-17
+isolation check: PASSED (probe reply: 'NONE')
+841 resumes x 3 samples; 701 already done; 1822 to run (model=granite4.2:8b, temperature=0.7, workers=8)
+  25/1822 done (18 not ok)
+  50/1822 done (38 not ok)
+  75/1822 done (52 not ok)
+  100/1822 done (65 not ok)
+  125/1822 done (69 not ok)
+  150/1822 done (78 not ok)
+  175/1822 done (103 not ok)
+  200/1822 done (127 not ok)
+  225/1822 done (150 not ok)
+  250/1822 done (167 not ok)
+  275/1822 done (179 not ok)
+  300/1822 done (195 not ok)
+  325/1822 done (207 not ok)
+  350/1822 done (221 not ok)
+  375/1822 done (231 not ok)
+  400/1822 done (245 not ok)
+  425/1822 done (256 not ok)
+  450/1822 done (274 not ok)
+  475/1822 done (284 not ok)
+  500/1822 done (289 not ok)
+  525/1822 done (291 not ok)
+  550/1822 done (296 not ok)
+  575/1822 done (308 not ok)
+  600/1822 done (325 not ok)
+  625/1822 done (341 not ok)
+  650/1822 done (357 not ok)
+  675/1822 done (376 not ok)
+  700/1822 done (398 not ok)
+  725/1822 done (414 not ok)
+  750/1822 done (434 not ok)
+  775/1822 done (450 not ok)
+  800/1822 done (468 not ok)
+  825/1822 done (486 not ok)
+  850/1822 done (499 not ok)
+  875/1822 done (514 not ok)
+  900/1822 done (528 not ok)
+  925/1822 done (542 not ok)
+  950/1822 done (558 not ok)
+  975/1822 done (572 not ok)
+  1000/1822 done (575 not ok)
+  1025/1822 done (575 not ok)
+  1050/1822 done (575 not ok)
+  1075/1822 done (575 not ok)
+  1100/1822 done (575 not ok)
+  1125/1822 done (575 not ok)
+  1150/1822 done (575 not ok)
+  1175/1822 done (575 not ok)
+  1200/1822 done (575 not ok)
+  1225/1822 done (575 not ok)
+  1250/1822 done (575 not ok)
+  1275/1822 done (576 not ok)
+  1300/1822 done (580 not ok)
+  1325/1822 done (581 not ok)
+=== 2026-11-19T03:18:56.757335+00:00  model=granite4.2:8b  endpoint=http://ads1.datasci.vt.edu:11434/v1/messages
+run dir: results/ollama/granite4.2-8b_2026-11-17
+isolation check: PASSED (probe reply: 'NONE')
+841 resumes x 3 samples; 1447 already done; 1076 to run (model=granite4.2:8b, temperature=0.7, workers=8)
+=== 2026-11-19T03:21:05.668288+00:00  model=granite4.2:8b  endpoint=http://ads2.datasci.vt.edu:11434/v1/messages
+run dir: results/ollama/granite4.2-8b_2026-11-17
+isolation check: PASSED (probe reply: 'NONE')
+841 resumes x 3 samples; 1449 already done; 1074 to run (model=granite4.2:8b, temperature=0.7, workers=8)
+=== 2026-11-19T03:23:13.186797+00:00  model=granite4.2:8b  endpoint=http://ads1.datasci.vt.edu:11434/v1/messages
+run dir: results/ollama/granite4.2-8b_2026-11-17
+isolation check: PASSED (probe reply: 'NONE')
+841 resumes x 3 samples; 1451 already done; 1072 to run (model=granite4.2:8b, temperature=0.7, workers=8)
+=== 2026-11-19T03:25:20.829985+00:00  model=granite4.2:8b  endpoint=http://ads2.datasci.vt.edu:11434/v1/messages
+run dir: results/ollama/granite4.2-8b_2026-11-17
+isolation check: PASSED (probe reply: 'NONE')
+841 resumes x 3 samples; 1454 already done; 1069 to run (model=granite4.2:8b, temperature=0.7, workers=8)
+=== 2026-11-19T03:27:28.298315+00:00  model=granite4.2:8b  endpoint=http://ads1.datasci.vt.edu:11434/v1/messages
+run dir: results/ollama/granite4.2-8b_2026-11-17
+isolation check: PASSED (probe reply: 'NONE')
+841 resumes x 3 samples; 1457 already done; 1066 to run (model=granite4.2:8b, temperature=0.7, workers=8)
+=== 2026-11-19T03:29:35.959506+00:00  model=granite4.2:8b  endpoint=http://ads2.datasci.vt.edu:11434/v1/messages
+run dir: results/ollama/granite4.2-8b_2026-11-17
+isolation check: PASSED (probe reply: 'NONE')
+841 resumes x 3 samples; 1461 already done; 1062 to run (model=granite4.2:8b, temperature=0.7, workers=8)
+=== 2026-11-19T03:31:43.504255+00:00  model=granite4.2:8b  endpoint=http://ads1.datasci.vt.edu:11434/v1/messages
+run dir: results/ollama/granite4.2-8b_2026-11-17
+isolation check: PASSED (probe reply: 'NONE')
+841 resumes x 3 samples; 1463 already done; 1060 to run (model=granite4.2:8b, temperature=0.7, workers=8)
+=== 2026-11-19T03:33:51.142256+00:00  model=granite4.2:8b  endpoint=http://ads2.datasci.vt.edu:11434/v1/messages
+run dir: results/ollama/granite4.2-8b_2026-11-17
+isolation check: PASSED (probe reply: 'NONE')
+841 resumes x 3 samples; 1467 already done; 1056 to run (model=granite4.2:8b, temperature=0.7, workers=8)
+=== 2026-11-19T03:35:58.626928+00:00  model=granite4.2:8b  endpoint=http://ads1.datasci.vt.edu:11434/v1/messages
+run dir: results/ollama/granite4.2-8b_2026-11-17
+isolation check: PASSED (probe reply: 'NONE')
+841 resumes x 3 samples; 1469 already done; 1054 to run (model=granite4.2:8b, temperature=0.7, workers=8)
+=== 2026-11-19T03:37:38.386438+00:00  model=granite4.2:8b  endpoint=http://ads1.datasci.vt.edu:11434/v1/messages
+run dir: results/ollama/granite4.2-8b_2026-11-17
+isolation check: PASSED (probe reply: 'NONE')
+281 resumes x 3 samples; 1472 already done; 45 to run (model=granite4.2:8b, temperature=0.7, workers=8)
+  25/45 done (0 not ok)
+  45/45 done (0 not ok)
+wrote /home/quinlanbrennan/ads_5984/instructor/agentic_ai_bias/results/ollama/granite4.2-8b_2026-11-17/scores.json (281 resumes, 842/843 calls ok)
+=== 2026-11-19T04:04:31.082366+00:00  model=granite4.2:8b  endpoint=http://ads1.datasci.vt.edu:11434/v1/messages
+run dir: results/ollama/granite4.2-8b_2026-11-17
+isolation check: PASSED (probe reply: 'NONE')
+280 resumes x 3 samples; 1517 already done; 505 to run (model=granite4.2:8b, temperature=0.7, workers=8)
+  25/505 done (1 not ok)
+  50/505 done (2 not ok)
+  75/505 done (6 not ok)
+  100/505 done (12 not ok)
+  125/505 done (13 not ok)

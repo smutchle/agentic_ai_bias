@@ -301,6 +301,11 @@ def run(args):
     items = build_items()
     if args.tier:
         items = [i for i in items if i["tier"] == args.tier]
+    if args.shard:
+        i, n = (int(x) for x in args.shard.split("/"))
+        if not 0 <= i < n:
+            raise SystemExit(f"--shard index must be 0..{n - 1}")
+        items = items[i::n]
     if args.limit:
         items = items[:args.limit]
 
@@ -478,6 +483,9 @@ def main():
                     help=f"concurrent calls (default 8; capped at {ARC_MAX_WORKERS} for the ARC endpoint)")
     ap.add_argument("--tier", choices=TIERS)
     ap.add_argument("--limit", type=int, help="score only the first N resumes (smoke test)")
+    ap.add_argument("--shard", metavar="I/N",
+                    help="score only resume indices i where i %% N == I (for splitting one run "
+                         "across machines; merge the scores.jsonl files afterwards)")
     ap.add_argument("--keep-reasoning", action=argparse.BooleanOptionalAction, default=True,
                     help="store the model's thinking text as 'reasoning' (default: on)")
     ap.add_argument("--combine-only", action="store_true")
