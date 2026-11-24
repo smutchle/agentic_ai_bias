@@ -1,0 +1,532 @@
+---
+title: "Demographic Cues and Resume Scores in Eight Large Language Models: An Exploratory Counterfactual Audit"
+author: "Harshil Agrawal, Sean Anderson, Nikhil Badlani, Adam Bergen, Logan Biddle, Quinlan Brennan, Micah Craine, Carlos Crespo, Zach Failor, Ben De Feo, Ryan Grant, Diya Gumaste, Gavin Hazelton, Joseph Hong, Mike Lian, Porter Lin, Reagan Monroe, Nate Montgomery, Rowan Muhoberac, Michael John Nielsen, Siddharth Pal, Vasu Patel, Shea Thompson Peters, Sarah Qazi, Ricky Rodriguez Jr, Erik Rosine, Rahul Yogesh Satoskar, Jonah Schepers, Heather Spichiger, Ryan Webster, Griffin Witt, Jackson Bauer, Ibrahim Oguz Cetinkaya, Pooja Challa, Scott Raymond Mutchler, Hieu Ngo, Nguyen Nguyen, Parker Alexander Niccum, Gede Abdi Dharma Pribadi, Mohammad Maged Mohammad Abdelhalim Rady, Justin Rodgers, Marcos Santiago, Jannatul Shefa, Rijul Tandon, Nobel Tedros"
+date: "November 2026"
+date-format: "MMMM YYYY"
+lang: en
+abstract: |
+  We audited eight large language models for demographic sensitivity in resume scoring. Each model scored 30 name-free base resumes against one fixed job posting for an aerospace Chief Technology Officer, and then scored 27 variants of each resume that differed only in bundled cues for race (White, African American, Middle Eastern), gender (male, female, non-binary) and age band (37--40, 41--55, 56--80). Each of the 840 documents was scored three times per model in an isolated context, for 20,160 calls in total. Treating the base resume as the unit of analysis (n = 30), no pairwise demographic contrast in any model exceeded 2 points on the 100-point scale, and 70 of 72 contrasts were statistically equivalent to zero within a $\pm 2$ point margin. Five contrasts were significant after Holm correction within a model, none after correction across all models, and two of the five depended on one questionable base resume. Most of the small effects ran the same way. African American and female variants scored slightly higher than White and male variants in seven of the eight models. Non-binary variants scored slightly higher than male variants, and the oldest age band slightly lower than the middle band, in all eight. The largest effect was an age penalty in Claude Sonnet 5.5 that was confined to highly qualified resumes ($-4.4$ points, 95% CI $-7.4$ to $-1.5$). The models' written rationales suggest that this penalty follows from an "Earlier Career" line our generator added to older variants, which exposed a career timeline that the younger variants left blank. We therefore cannot attribute it to age alone. The analysis was exploratory and not pre-registered, covers one job and 30 resumes, and uses bundled cues, so we offer the results as hypotheses for a confirmatory study.
+bibliography: references.bib
+format:
+  pdf:
+    pdf-engine: pdflatex
+    documentclass: article
+    papersize: letter
+    fontsize: 10pt
+    geometry:
+      - margin=1in
+    number-sections: true
+    colorlinks: true
+    fig-pos: "tbp"
+    tbl-cap-location: top
+    include-in-header:
+      text: |
+        \usepackage{newtxtext,newtxmath}
+        \usepackage{authblk}
+        \usepackage{booktabs}
+        \usepackage{adjustbox}
+        \usepackage{microtype}
+        \usepackage{caption}
+        \captionsetup{font=small,labelfont=bf}
+        \renewcommand{\topfraction}{0.95}
+        \renewcommand{\bottomfraction}{0.9}
+        \renewcommand{\textfraction}{0.05}
+        \renewcommand{\floatpagefraction}{0.75}
+execute:
+  echo: false
+  warning: false
+jupyter: python3
+---
+
+```{python}
+#| label: setup
+import sys, itertools, re
+sys.path.insert(0, ".")
+import numpy as np, pandas as pd
+import matplotlib.pyplot as plt
+from matplotlib.colors import LinearSegmentedColormap, TwoSlopeNorm
+from matplotlib.lines import Line2D
+from IPython.display import Markdown, display
+import analysis as A
+import figstyle as fs
+fs.apply()
+
+df, meta, S = A.load()
+C, O, PR = A.contrasts(df)
+H = A.heterogeneity(PR)
+N = A.named_vs_baseline(df)
+T = A.tier_contrasts(PR)
+I2 = A.two_way(df)
+NZ = A.noise(df, S)
+TM = A.timeline_mentions()
+C_x, _, _ = A.contrasts(df, exclude=("high/05",))
+MODELS = A.MODELS
+
+
+def two_line(m):
+    """Model label broken over two lines for narrow panels."""
+    head, _, tail = m.rpartition(" ")
+    return f"{head}\n{tail}" if head else m + "\n"
+
+
+def fp(p):
+    return "<0.001" if p < 0.001 else f"{p:.3f}"
+
+
+def sg(x, d=2):
+    return f"{x:+.{d}f}".replace("-", "−") if False else f"{x:+.{d}f}"
+
+
+def ci(lo, hi, d=2):
+    return f"{lo:+.{d}f} to {hi:+.{d}f}"
+
+
+def tex(x):
+    x = str(x).replace("%", r"\%").replace("<", "$<$")
+    x = re.sub(r"[-+](0\.0+)(?!\d)", r"\1", x)            # no signed zeros
+    x = re.sub(r"(\d)-(\d)", r"\1--\2", x)                # ranges such as 41--55
+    return re.sub(r"(?<![\w-])-(?=\d)", "$-$", x)          # minus signs
+
+
+def show(t, align=None, size="small"):
+    """Emit a booktabs tabular as raw LaTeX."""
+    align = align or ("left",) + ("right",) * (t.shape[1] - 1)
+    spec = "".join({"left": "l", "right": "r", "center": "c"}[a] for a in align)
+    head = " & ".join(c if c.startswith("$") else tex(c) for c in t.columns)
+    body = "\n".join(" & ".join(tex(v) for v in row) + r" \\" for row in t.astype(str).values)
+    out = (f"\\begingroup\\{size}\\centering\n\\begin{{adjustbox}}{{max width=\\textwidth}}\n\\begin{{tabular}}{{@{{}}{spec}@{{}}}}\n\\toprule\n{head} \\\\\n"
+           f"\\midrule\n{body}\n\\bottomrule\n\\end{{tabular}}\n\\end{{adjustbox}}\n\\par\\endgroup")
+    display(Markdown("```{=latex}\n" + out + "\n```"))
+```
+
+*Author note.* This study was a class exercise in ADS 5984 at Virginia Tech. Authors are listed in class-roster order. This manuscript is an AI-generated draft produced with Anthropic Claude Fable 5.2; see the AI use disclosure at the end of the article.
+
+## Introduction
+
+Employers have started to use large language models (LLMs) to read and rank job applications. Earlier screening tools drew criticism for opaque and poorly validated claims about fairness [@raghavan2020], and LLMs raise the same concern in a new form: a general-purpose model that reads a whole resume can react to any text in it, including text that signals who the applicant is.
+
+Field experiments have measured this kind of reaction in human screeners for two decades. Resumes that are identical except for a name associated with Black applicants receive fewer callbacks than those with names associated with White applicants [@bertrand2004; @kline2022], and older applicants receive fewer callbacks than younger ones [@neumark2019]. The same counterfactual design carries over to models, where it is cheaper to run and can be repeated exactly. Recent audits have reported demographic differences in LLM hiring decisions, though the direction and size vary by model, task and prompt [@tamkin2023; @armstrong2024; @wilson2024]. One large study of five models found scores that favored women and disadvantaged Black men by small margins [@an2025].
+
+Most of this work varies race and gender through names alone and studies one or two model families. Our design differs in a few ways. We cross race, gender and age in a full factorial, so each factor is estimated with the other two balanced. Every resume also has a name-free baseline, and the resumes span three qualification tiers, which lets us ask whether effects depend on how strong the candidate is. We ran the same materials through eight models under one protocol. They range from large hosted models to three small open-weight models run on local servers.
+
+Our questions were:
+
+1. Do resume scores change with race, gender or age cues when qualifications are held fixed, and by how much?
+2. Do the eight models differ in these effects?
+3. Do the effects depend on the qualification tier of the resume?
+
+The study was designed and run as a class exercise. Hypotheses, the analysis plan and the equivalence margin were not registered before data collection, so we treat every test as exploratory. We give effect sizes and intervals before p-values and correct for multiple comparisons. Where the data only hint at something, we say so.
+
+## Methods
+
+### Materials
+
+**Job posting.** All resumes were scored against one posting for a Chief Technology Officer at a mid-sized aerospace company. The posting lists six required qualifications, among them 15 or more years in aerospace or an adjacent industry, 10 or more years leading engineering organizations, and U.S. Person status under ITAR. The wording was fixed for all runs.
+
+**Base resumes.** We wrote 30 base resumes with an LLM under a fixed generation prompt, 10 in each of three tiers defined against the posting. High-tier resumes meet all required qualifications and most preferred ones. Medium-tier resumes fall short on one or two required qualifications. Low-tier resumes miss several. Base resumes carry no names, pronouns, dates or identity-linked affiliations. Placeholders stand in for names, cities, employers, schools and years.
+
+**Demographic variants.** A script filled the placeholders to produce 27 variants of every base resume, one for each combination of three race groups, three gender groups and three age bands, for 810 variants. Titles, bullets, years of experience, degrees and certifications are identical to the base resume. Demographic cues appear only in these places:
+
+- the name and pronouns in the heading, and an email address and profile link derived from the name;
+- the home city and employer cities;
+- race-linked universities of comparable standing;
+- degree years, set so that the candidate is about 38, 48 or 65 years old in 2026;
+- a closing section with one race-linked community line, one gender-linked line and a list of interests, with neutral lines of similar length for White and male cells;
+- an "Earlier Career" line (for example, "1990--2009: Roles in retail operations and customer service; details available on request") whenever the gap between the end of schooling and the first listed role is four years or more.
+
+First names for the White and African American cells follow published perception studies where possible [@gaddis2017; @elder2023]. Names for the Middle Eastern, non-binary and age-matched cells do not come from a validated list.
+
+Two properties of this design matter for interpretation. The cues are bundled, so an effect of "race" is the joint effect of a name, a city, a school and a community line. And the Earlier Career line is tied to age: it appears in every variant in the oldest band and in few variants in the youngest (@tbl-timeline). We return to both points in the Discussion.
+
+### Models and scoring protocol
+
+@tbl-runs lists the eight models. Three were served by the Virginia Tech Advanced Research Computing (ARC) endpoint, two by the Anthropic API, and three by local Ollama servers.
+
+Each call sent a fixed system prompt, the job posting and exactly one resume, with no conversation history. The system prompt asks for an integer score from 0 to 100 with anchored bands (for example, 90--100 for a candidate who meets all required and nearly all preferred qualifications) and a rationale of at most three sentences, returned as JSON. Before each run the harness planted a random word in one call and probed for it in another; no run showed leakage between calls. Each of the 840 documents (30 baselines and 810 variants) was scored three times, for 2,520 calls per model. Temperature was 0.7 for seven models. Claude Haiku 5.5 rejects the temperature parameter and ran at the endpoint default, so its sampling variability is not strictly comparable with the others.
+
+Responses were capped at 4,000 output tokens, a limit that includes any reasoning text the model emits before its answer. Granite 4.2 8B used up that allowance while still reasoning in 226 of its 2,520 calls (9%) and returned no score. The failures were not spread evenly across demographic cells (88 in the oldest age band against 63 in the youngest), and dropping them could have biased the contrasts. We reran those 226 calls with a cap of 12,000 tokens, and all completed, the longest at 6,231 tokens. A cap only truncates long responses, so the calls that had finished under 4,000 tokens were not rerun. That makes Granite the one model scored under a higher cap, and we made the change after seeing the failures.
+
+```{python}
+#| label: tbl-runs
+#| tbl-cap: "Models and run quality. Malformed responses could not be parsed into a score and were dropped. Counts for Granite 4.2 8B are after the rerun of truncated calls described in the text. Within-item SD is the pooled standard deviation of the three scores for the same document."
+t = meta.merge(NZ[["model", "within_sd"]], on="model")
+t = pd.DataFrame({
+    "Model": t.model, "Served by": t.source.replace({"ARC": "VT ARC", "anthropic": "Anthropic API", "ollama": "Ollama (local)"}),
+    "Temp.": t.temperature.map(lambda x: "default" if pd.isna(x) else f"{x:.1f}"),
+    "Calls": t.n_calls.map("{:,}".format), "Valid": t.n_ok.map("{:,}".format),
+    "Malformed": t.n_malformed, "Refused": t.n_refusal,
+    "Within-item SD": t.within_sd.map("{:.2f}".format)})
+show(t, ("left", "left", "right", "right", "right", "right", "right", "right"))
+```
+
+### Outcome and unit of analysis
+
+For each model, the score of a document is the mean of its valid samples. The outcome for a variant is its score minus the score of the name-free baseline of the same base resume.
+
+Variants of one base resume share its content and are not independent, so the base resume is the unit of analysis (n = 30 per model). For each model and factor we average a resume's variant outcomes within each level, giving one value per resume per level; because the design is balanced, each level mean averages over the other two factors equally. A pairwise contrast, such as African American minus White, is then a paired difference with one value per resume. The baseline score cancels out of every such contrast, so pairwise contrasts do not depend on the baseline and are unaffected by its sampling noise.
+
+### Statistical analysis
+
+*Pairwise contrasts.* For each of the nine contrasts in each model we report the mean paired difference, its 95% confidence interval and a one-sample t-test on 29 degrees of freedom, with a Wilcoxon signed-rank test as a check on distributional assumptions.
+
+*Omnibus tests.* For each factor in each model we test that both contrasts against the reference level are zero with a one-sample Hotelling $T^2$ test (F on 2 and 28 degrees of freedom), and repeat the test with a Friedman test blocked on base resume.
+
+*Equivalence.* A non-significant difference is not evidence of no difference. We therefore test each contrast for equivalence within $\pm 2$ points using two one-sided tests [@schuirmann1987; @lakens2017]. The margin was chosen by the study team before the cross-model analysis but was not pre-registered, and we know of no accepted standard for a negligible difference in resume scores. Readers who prefer another margin can apply it to the intervals in @tbl-contrasts-full.
+
+*Differences between models.* All models scored the same resumes, so for each contrast we have a 30-by-8 matrix of paired differences. We test equality of the eight model means with a Hotelling $T^2$ test on the seven successive differences between models (F on 7 and 23 degrees of freedom) and a Friedman test. We also report the mean across the eight models as a descriptive summary. That summary describes this particular set of models, which is a convenience sample, and should not be read as an estimate for LLMs in general.
+
+*Tier dependence and interactions.* We compare each contrast across the three tiers with a one-way analysis of variance on the per-resume differences (10 resumes per tier) and a Kruskal--Wallis test. Two-way interactions between demographic factors are tested per model with a Hotelling $T^2$ test on the four interaction contrasts.
+
+*Named versus name-free.* We test whether the mean outcome over all 27 variants differs from zero, per model. Unlike the pairwise contrasts, this comparison depends on the baseline, which rests on only three samples per resume.
+
+*Multiplicity.* We apply the Holm procedure [@holm1979] within each model's family of nine contrasts and again across all 72 contrasts, and report Benjamini--Hochberg false discovery rates [@benjamini1995] across the 72. We call a result "significant within model" or "significant study-wide" accordingly.
+
+*Sensitivity.* One high-tier resume (high/05) describes a software executive with no aerospace experience and scored far below its tier in every model. We keep it in the main analysis, since removing it after seeing scores would be a post hoc choice, and report the contrasts with it excluded.
+
+*Power.* With 30 resumes, a two-sided paired test at $\alpha = 0.05$ has 80% power for a standardized effect of about 0.53. The standard deviation of the per-resume contrasts ranged from 0.7 to 3.3 points across models and contrasts, so the smallest detectable main-effect difference ran from roughly 0.4 points (most Qwen 3.8 27B contrasts) to 1.7 points (the age contrasts in Claude Sonnet 5.5). Within a tier of 10 resumes only much larger differences could be detected.
+
+*Rationale text.* To help interpret the age results we counted, after seeing them, how often a model's rationale cited the Earlier Career line or a calendar year. The count uses a keyword match and has not been validated against human coding.
+
+Analyses used Python with pandas, SciPy and statsmodels. The code that produces every number, table and figure here is in the project repository alongside the raw model outputs.
+
+## Results
+
+### Data quality and tier validity
+
+No model refused a call. Eleven responses from Claude Sonnet 5.5, 20 from Ornith 1.5 9B and 14 from Qwen 3.8 27B were malformed and dropped, which left every document with at least one valid score (@tbl-runs). Repeated scores of the same document varied by 2.1 to 6.2 points (pooled within-item SD), which is larger than any demographic effect we report below.
+
+Baseline scores separated the three tiers in every model (@fig-baseline, @tbl-baseline). The models also agreed closely on the ordering of the 30 baselines (Spearman correlations between models from 0.92 upward). High-tier scores sat near the top of the scale, with most individual scores at 95 or above in seven of the eight models, which leaves little room for a cue to raise a score in that tier. Granite 4.2 8B scored every tier higher than the other models did, most visibly the low tier (mean 28 against 7 to 21 elsewhere). The outlying high-tier point in each panel of @fig-baseline is resume high/05.
+
+```{python}
+#| label: fig-baseline
+#| fig-cap: "Scores of the 30 name-free base resumes by qualification tier and model. Each point is one resume (mean of three samples); horizontal bars are tier means. The low outlier in the high tier is resume high/05."
+#| fig-alt: "Eight-panel strip plot. In every model the high-tier resumes cluster near 90 to 98, the medium tier near 58 to 71 and the low tier near 7 to 28, with one high-tier resume scoring far below the others."
+#| fig-width: 6.5
+#| fig-height: 4.3
+base = df[df.is_baseline]
+rng = np.random.default_rng(7)
+fig, axes = plt.subplots(2, 4, figsize=(6.5, 4.3), sharey=True, sharex=True)
+for ax, m in zip(axes.ravel(), MODELS):
+    for i, t in enumerate(A.TIERS):
+        y = base[(base.model == m) & (base.tier == t)].mean_score.values
+        ax.scatter(i + rng.uniform(-0.16, 0.16, len(y)), y, s=13, marker=fs.TIER_MK[t], color=fs.TIER_COL[t],
+                   edgecolor="white", linewidth=0.4, alpha=0.9, zorder=3)
+        ax.hlines(y.mean(), i - 0.32, i + 0.32, color=fs.INK, lw=1.1, zorder=4)
+    ax.set_title(m, fontsize=7.8)
+    ax.set_xticks(range(3)); ax.set_xticklabels(["High", "Medium", "Low"])
+    ax.set_xlim(-0.6, 2.6); ax.set_ylim(0, 102)
+    ax.yaxis.grid(True, color=fs.GRID, lw=0.5); ax.set_axisbelow(True)
+for ax in axes[:, 0]:
+    ax.set_ylabel("Baseline score (0–100)")
+fig.tight_layout(w_pad=0.8, h_pad=1.0)
+plt.show()
+```
+
+```{python}
+#| label: tbl-baseline
+#| tbl-cap: "Mean baseline score by tier and share of individual high-tier scores at 95 or above. Shift is a variant's score minus its baseline; the last two columns give its standard deviation across the 810 variants and the share of variants that moved more than 5 points in either direction."
+t = pd.DataFrame({
+    "Model": NZ.model, "High": NZ.base_high.map("{:.1f}".format), "Medium": NZ.base_medium.map("{:.1f}".format),
+    "Low": NZ.base_low.map("{:.1f}".format), "High-tier scores of 95+ (%)": NZ.pct_ge95_high.map("{:.0f}".format),
+    "SD of shift": NZ.sd_diff.map("{:.2f}".format),
+    "Shift over 5 points (%)": NZ.abs_diff_gt5.map("{:.0f}".format)})
+show(t, ("left",) + ("right",) * 6)
+```
+
+### Demographic contrasts within each model
+
+@fig-forest shows all 72 contrasts with their confidence intervals, and @tbl-contrasts-full in the appendix gives the numbers.
+
+The effects were small. No estimated contrast exceeded 2 points in absolute value. The largest was the oldest band against the youngest in Claude Sonnet 5.5 ($-1.85$ points, 95% CI $-3.03$ to $-0.67$). Of the 72 contrasts, 70 were equivalent to zero within $\pm 2$ points after Holm correction within model. The two exceptions were the two contrasts involving the oldest band in Claude Sonnet 5.5, whose intervals extend past $-2$.
+
+Few contrasts were significant. Five passed Holm correction within model (@tbl-sig). None was significant after correction across all 72 (smallest adjusted p = 0.119), and the smallest false discovery rate was 0.077. Omnibus tests gave a similar picture: 7 of 24 factor-by-model tests had unadjusted p below 0.05, six of them in GLM-5.3 and the two Claude models and one in Granite 4.2 8B (age band), and none survived Holm correction across the 24 (@tbl-omnibus). DeepSeek 4.1 Flash, GPT-OSS 120B, Ornith 1.5 9B, Qwen 3.8 27B and Granite 4.2 8B had no contrast that was significant after correction, within model or study-wide.
+
+The signs of the estimates agreed across models more often than the significance tests would suggest, but not in every case. Non-binary minus male was positive in all eight models, and the oldest band scored below the middle band in all eight. African American minus White, Middle Eastern minus White and female minus male were each positive in seven of the eight. The exceptions were Granite 4.2 8B, where African American variants scored 0.27 points below White variants and female variants 0.10 below male variants, and Qwen 3.8 27B, where the Middle Eastern contrast was close to zero ($-0.03$). None of those three opposite-sign estimates was distinguishable from zero. Under a null of no effect, eight estimates with the same sign would occur by chance with probability 1 in 128 for a given contrast, but that figure flatters the evidence: the models share training data and conventions, so they are not independent, and we looked at nine contrasts.
+
+```{python}
+#| label: fig-forest
+#| fig-cap: "Pairwise demographic contrasts by model. Points are mean paired differences across the 30 base resumes, in score points, with 95% confidence intervals. Filled points are significant after Holm correction within model; none is significant after correction across all 72 contrasts. The shaded band marks the $\\pm 2$ point equivalence margin."
+#| fig-alt: "Nine-panel forest plot, three contrasts each for race, gender and age band, with eight models per panel. Nearly all intervals lie inside the plus or minus two point band. Race and gender contrasts against White and male are slightly positive in most models. The oldest age band is below the others in the Claude models, most clearly for Claude Sonnet 5.5."
+#| fig-width: 6.5
+#| fig-height: 7.0
+fig, axes = plt.subplots(3, 3, figsize=(6.5, 7.0), sharex=True, sharey=True)
+ypos = np.arange(len(MODELS))[::-1]
+for r, (f, lv) in enumerate(A.FACTORS.items()):
+    for c, (a, b) in enumerate(itertools.combinations(lv, 2)):
+        ax = axes[r, c]
+        g = C[(C.factor == f) & (C.a == a) & (C.b == b)].set_index("model").loc[MODELS]
+        ax.axvspan(-A.MARGIN, A.MARGIN, color="#f0efec", zorder=0, lw=0)
+        ax.axvline(0, color=fs.MUTED, lw=0.6, zorder=1)
+        for y, (_, row) in zip(ypos, g.iterrows()):
+            sig = row.p_holm_model < 0.05
+            ax.hlines(y, row.lo, row.hi, color=fs.INK, lw=1.0, zorder=2)
+            ax.plot(row.est, y, "o", ms=4.6, mfc=fs.BLUE if sig else "white", mec=fs.BLUE if sig else fs.INK, mew=0.9, zorder=3)
+        ax.set_title(f"{A.NICE[b]}\nminus {A.NICE[a]}", fontsize=7.8, linespacing=1.15)
+        ax.set_yticks(ypos); ax.set_yticklabels(MODELS)
+        ax.set_xlim(-3.4, 3.4); ax.set_ylim(-0.6, len(MODELS) - 0.4)
+        ax.set_xticks([-2, 0, 2])
+        if c == 2:
+            ax.text(1.03, 0.5, A.NICE[f], transform=ax.transAxes, rotation=270, va="center", ha="left", fontsize=8.5, fontweight="bold")
+        if r == 2:
+            ax.set_xlabel("Difference in score (points)")
+fig.legend(handles=[Line2D([], [], marker="o", ls="", ms=4.6, mfc=fs.BLUE, mec=fs.BLUE, label="Holm-adjusted p < 0.05 within model"),
+                    Line2D([], [], marker="o", ls="", ms=4.6, mfc="white", mec=fs.INK, label="Not significant")],
+           loc="lower center", ncol=2, bbox_to_anchor=(0.55, -0.035))
+fig.tight_layout(h_pad=1.0, w_pad=0.8)
+plt.show()
+```
+
+```{python}
+#| label: tbl-sig
+#| tbl-cap: "Contrasts significant after Holm correction within model. Estimates are in score points. Holm p-values are adjusted within model and across all 72 contrasts; the last column gives the within-model value with resume high/05 excluded."
+s = C[C.p_holm_model < 0.05]
+sx = C_x.loc[s.index]
+t = pd.DataFrame({
+    "Model": s.model, "Contrast": s.contrast.str.replace(" - ", " minus "), "Estimate": s.est.map("{:+.2f}".format),
+    "95% CI": [ci(a, b) for a, b in zip(s.lo, s.hi)], "$d_z$": s.dz.map("{:+.2f}".format),
+    "p": s.p.map(fp), "Holm p, model": s.p_holm_model.map(fp), "Holm p, all 72": s.p_holm_all.map(fp),
+    "Holm p, excl. high/05": sx.p_holm_model.map(fp)})
+show(t, ("left", "left") + ("right",) * 7, size="footnotesize")
+```
+
+```{python}
+#| label: tbl-omnibus
+#| tbl-cap: "Omnibus tests of each demographic factor within each model. Cells give the Hotelling F statistic on 2 and 28 degrees of freedom with its unadjusted p-value, followed by the Friedman p-value in brackets. No test is significant after Holm correction across the 24 tests."
+o = O.assign(cell=[f"{F:.2f} ({fp(p)}) [{fp(q)}]" for F, p, q in zip(O.F, O.p, O.friedman_p)])
+t = o.pivot(index="model", columns="factor", values="cell").loc[MODELS, list(A.FACTORS)].reset_index()
+t.columns = ["Model", "Race", "Gender", "Age band"]
+show(t, ("left", "right", "right", "right"))
+```
+
+The Friedman tests in @tbl-omnibus were more often significant than the Hotelling tests for the two Claude models and GLM-5.3. Rank-based tests respond to consistency of direction across resumes more than to size, so this pattern fits small shifts that occur in most resumes. We do not treat the Friedman results as stronger evidence, since the choice between tests was not fixed in advance.
+
+Excluding resume high/05 changed no estimate by more than 0.2 points. It did move two GLM-5.3 contrasts (Middle Eastern minus African American, and female minus male) from just below to just above the within-model threshold (@tbl-sig), so those two results should be regarded as fragile.
+
+### Comparison across models
+
+@tbl-pooled summarizes each contrast across the eight models. Averaged over models, African American variants scored 0.34 points above White variants and Middle Eastern variants 0.25 points above, female and non-binary variants about 0.35 points above male variants, and the oldest band about 0.5 points below the two younger bands. These six averages were significant after Holm correction across the nine contrasts. All are about half a point or less.
+
+No test of differences between models was significant after correction (smallest unadjusted p = 0.067). We do not read this as evidence that the models behave alike. The test has seven numerator degrees of freedom and 30 resumes, the model-specific estimates range from near zero (DeepSeek 4.1 Flash, GPT-OSS 120B, Qwen 3.8 27B) to about one point or more (the Claude models), one model (Granite 4.2 8B) had race and gender estimates of the opposite sign, and the Friedman test for the oldest-versus-youngest contrast did reach p = 0.002 unadjusted. The data are compatible both with modest real differences between models and with none.
+
+```{python}
+#| label: tbl-pooled
+#| tbl-cap: "Each contrast averaged across the eight models, the range of model-specific estimates, and a heterogeneity (Het.) test that the eight models share the same mean (Hotelling F on 7 and 23 degrees of freedom). Holm corrections are across the nine contrasts."
+t = pd.DataFrame({
+    "Contrast": H.contrast.str.replace(" - ", " minus "), "Mean": H.pooled.map("{:+.2f}".format),
+    "95% CI": [ci(a, b) for a, b in zip(H.lo, H.hi)], "Holm p": H.p_pooled_holm.map(fp),
+    "Range of models": [f"{a:+.2f} to {b:+.2f}" for a, b in zip(H["min"], H["max"])],
+    "Het. F": H.F.map("{:.2f}".format), "Het. p": H.p_het.map(fp), "Het. Holm p": H.p_het_holm.map(fp)})
+show(t, ("left",) + ("right",) * 7)
+```
+
+### Named versus name-free resumes
+
+Averaged over all 27 variants, no model scored cue-bearing resumes differently from the name-free baselines after Holm correction across models (@tbl-named). Claude Sonnet 5.5 came closest, at $-1.5$ points overall and $-2.7$ points in the high tier, where the t-test and the Wilcoxon test disagreed (p = 0.056 and 0.007). Because each baseline rests on three samples, these comparisons are noisier than the pairwise contrasts, and a drop for variants in the high tier could also arise from a ceiling: a baseline near 98 can be undercut but not exceeded.
+
+```{python}
+#| label: tbl-named
+#| tbl-cap: "Mean score of the 27 demographic variants minus the name-free baseline, by model. Overall estimates use 30 base resumes; tier estimates use 10 each and are unadjusted."
+a = N[N.tier == "all"].set_index("model")
+t = pd.DataFrame({"Model": MODELS,
+                  "Overall": [f"{a.est[m]:+.2f}" for m in MODELS],
+                  "95% CI": [ci(a.lo[m], a.hi[m]) for m in MODELS],
+                  "p (t)": [fp(a.p[m]) for m in MODELS], "p (Wilcoxon)": [fp(a.p_wilcoxon[m]) for m in MODELS],
+                  "Holm p": [fp(a.p_holm[m]) for m in MODELS]})
+for tier in A.TIERS:
+    b = N[N.tier == tier].set_index("model")
+    t[tier.capitalize()] = [f"{b.est[m]:+.2f}" for m in MODELS]
+show(t, ("left",) + ("right",) * 8)
+```
+
+### Dependence on qualification tier
+
+The age effect was not uniform across tiers (@fig-tier). In Claude Sonnet 5.5 the oldest band scored 4.4 points below the middle band in the high tier (95% CI $-7.4$ to $-1.5$), against $-0.3$ in the medium tier and $+0.4$ in the low tier. The difference between tiers was the only tier-by-contrast test significant study-wide (F = 10.5, Holm p = 0.031 across 72 tests). Claude Haiku 5.5 showed the same shape at about half the size ($-2.3$ points in the high tier, 95% CI $-4.2$ to $-0.4$; not significant after correction). In the other six models the high-tier estimate was within one point of zero.
+
+Several race and gender contrasts were largest in the low tier, for example African American minus White in Claude Haiku 5.5 ($+1.8$ points) and female minus male in GLM-5.3 ($+1.2$ points). None of these tier differences survived correction, and each tier holds only 10 resumes, so we report them as observations only. Compression near the ceiling in the high tier would by itself produce smaller upward effects there.
+
+No two-way interaction between demographic factors was significant after correction in any model (1 of 24 tests had unadjusted p below 0.05; @tbl-interactions). @fig-heat shows the 27 cell means per model. We see no single intersectional cell that stands apart in the way reported for Black men in some earlier audits [@an2025; @wilson2024], though the study was not powered for cell-level comparisons.
+
+```{python}
+#| label: fig-tier
+#| fig-cap: "Oldest minus middle age band (56--80 minus 41--55) by qualification tier and model. Points are mean paired differences across the 10 base resumes in each tier with 95% confidence intervals. Marker shape and color both encode tier."
+#| fig-alt: "Dot plot with intervals for eight models and three tiers. For Claude Sonnet 5.5 the high-tier estimate is about minus 4.4 points and for Claude Haiku 5.5 about minus 2.3, while medium and low tier estimates and all estimates for the other six models lie within one point of zero."
+#| fig-width: 6.5
+#| fig-height: 2.7
+g = T[(T.contrast == "56-80 - 41-55")].set_index("model").loc[MODELS]
+fig, ax = plt.subplots(figsize=(6.5, 2.7))
+off = {"high": -0.22, "medium": 0.0, "low": 0.22}
+ax.axhline(0, color=fs.MUTED, lw=0.6)
+for i, m in enumerate(MODELS):
+    for t in A.TIERS:
+        x = i + off[t]
+        ax.vlines(x, g.loc[m, f"{t}_lo"], g.loc[m, f"{t}_hi"], color=fs.TIER_COL[t], lw=1.2)
+        ax.plot(x, g.loc[m, f"{t}_est"], fs.TIER_MK[t], ms=5.5, color=fs.TIER_COL[t], mec="white", mew=0.6)
+ax.set_xticks(range(len(MODELS))); ax.set_xticklabels([two_line(m) for m in MODELS], fontsize=7)
+ax.set_ylabel("Difference in score (points)")
+ax.set_ylim(-8, 2.6)
+ax.yaxis.grid(True, color=fs.GRID, lw=0.5); ax.set_axisbelow(True)
+ax.tick_params(axis="x", length=0)
+ax.legend(handles=[Line2D([], [], marker=fs.TIER_MK[t], ls="-", lw=1.2, ms=5.5, color=fs.TIER_COL[t], mec="white", label=f"{t.capitalize()} tier") for t in A.TIERS],
+          loc="lower right", ncol=3)
+fig.tight_layout()
+plt.show()
+```
+
+```{python}
+#| label: fig-heat
+#| fig-cap: "Mean variant score minus name-free baseline for each of the 27 demographic cells, by model, averaged over the 30 base resumes. Blue cells scored above the baseline and red cells below it. Cell values are printed so that the figure does not rely on color."
+#| fig-alt: "Eight heat maps, one per model, each with three rows for race and nine columns for gender by age band. Most cells are within one point of zero. Claude Sonnet 5.5 is negative in most cells and most negative in the 56 to 80 columns."
+#| fig-width: 6.5
+#| fig-height: 8.3
+cmap = LinearSegmentedColormap.from_list("div", ["#b3261e", "#e9a39c", "#f0efec", "#9dbfea", "#184f95"])
+var = df[~df.is_baseline]
+cells = var.groupby(["model", "race", "gender", "age_band"], observed=True).diff_from_baseline.mean()
+vmax = np.ceil(cells.abs().max())
+norm = TwoSlopeNorm(0, -vmax, vmax)
+fig, axes = plt.subplots(4, 2, figsize=(6.5, 8.3))
+cols = [(g, a) for g in A.FACTORS["gender"] for a in A.FACTORS["age_band"]]
+for ax, m in zip(axes.ravel(), MODELS):
+    M = np.array([[cells[(m, r, g, a)] for g, a in cols] for r in A.FACTORS["race"]])
+    im = ax.imshow(M, cmap=cmap, norm=norm, aspect="auto")
+    for (i, j), v in np.ndenumerate(M):
+        ax.text(j, i, f"{(0.0 if abs(v) < 0.05 else v):+.1f}", ha="center", va="center", fontsize=6.3, color="white" if abs(v) > 0.62 * vmax else fs.INK)
+    ax.set_xticks(range(9)); ax.set_xticklabels([a for _, a in cols], fontsize=6.3)
+    ax.set_yticks(range(3)); ax.set_yticklabels(["White", "African\nAmerican", "Middle\nEastern"], fontsize=7)
+    ax.set_xticks(np.arange(-.5, 9), minor=True); ax.set_yticks(np.arange(-.5, 3), minor=True)
+    ax.grid(which="minor", color="white", lw=1.2); ax.tick_params(which="both", length=0)
+    for sp in ax.spines.values(): sp.set_visible(False)
+    for k, gname in enumerate(["Male", "Female", "Non-binary"]):
+        ax.text(1 + 3 * k, -0.72, gname, ha="center", va="bottom", fontsize=7, color=fs.MUTED)
+    ax.axvline(2.5, color="white", lw=3); ax.axvline(5.5, color="white", lw=3)
+    ax.set_title(m, pad=19, loc="left")
+fig.tight_layout(h_pad=1.4, w_pad=1.2, rect=(0, 0.05, 1, 1))
+cax = fig.add_axes([0.3, 0.02, 0.4, 0.011])
+cb = fig.colorbar(im, cax=cax, orientation="horizontal"); cb.outline.set_visible(False)
+cb.set_label("Variant minus baseline (points)", fontsize=7.5); cb.ax.tick_params(labelsize=7, length=2)
+plt.show()
+```
+
+### What the rationales say about the age effect
+
+The size and tier-specificity of the age effect in the Claude models led us to read their rationales. Many gave the same reason for a lower score: the Earlier Career line. In a high-tier variant aged 65, the line might read "1990--2009: Roles in retail operations and customer service." Job dates in the resume body remain placeholders, so this line is the only dated career information on the page. Several rationales reasoned that an aerospace career starting after 2009 could "barely" satisfy the 15-year industry requirement and left the 10-year leadership requirement unverifiable, and lowered the score for that reason. The youngest variants of the same resume have no such line and gave the models nothing to check.
+
+@tbl-timeline counts how often rationales cited the Earlier Career line or a calendar year. The three models with nominal age effects (Claude Sonnet 5.5, Claude Haiku 5.5 and GLM-5.3) cited the timeline far more often in the oldest band than the youngest, and most often in the high tier, where the required years of experience are the binding consideration. Four of the other five models seldom cited it in the high tier. The fifth, Qwen 3.8 27B, cited it in 21% of its rationales for oldest-band high-tier variants and still showed no age effect there ($-0.1$ points), so a model can notice the timeline without marking the candidate down for it. Among high-tier variants in the oldest band scored by Claude Sonnet 5.5, the 83 whose rationales cited the timeline averaged 5.6 points below baseline and the 7 that did not averaged 1.2 points below.
+
+The youngest band was not free of the problem. In four high-tier resumes Claude Sonnet 5.5 cited calendar years for every youngest variant, typically to point out that a B.S. dated 2010 is hard to reconcile with a stated 15 or more years of experience. Age cues at both ends of the range therefore changed how plausible the stated career looked, in addition to how old the candidate appeared.
+
+We had not anticipated this when we wrote the generator. The reading is post hoc and rests on a keyword match, and a model's stated rationale need not reflect what determined its score. Still, the age manipulation plainly changed more than apparent age. It also changed how much of the career timeline a reader could check, and our design cannot separate the two.
+
+```{python}
+#| label: tbl-timeline
+#| tbl-cap: "Timeline citations in model rationales (keyword match) by age band, for all tiers and for the high tier alone. The first row gives the share of variants that contain an Earlier Career line; the remaining rows give the share of rationales that cite that line or a calendar year."
+tm = TM.copy()
+allb = tm.pivot_table(index="model", columns="age_band", values="mention", sort=False) * 100
+hi = tm[tm.tier == "high"].pivot_table(index="model", columns="age_band", values="mention", sort=False) * 100
+line = tm[tm.model == MODELS[0]].groupby("age_band").has_line.mean() * 100
+hline = tm[(tm.model == MODELS[0]) & (tm.tier == "high")].groupby("age_band").has_line.mean() * 100
+bands = A.FACTORS["age_band"]
+rows = [["Variants with the line"] + [f"{line[b]:.0f}%" for b in bands] + [f"{hline[b]:.0f}%" for b in bands]]
+rows += [[m] + [f"{allb.loc[m, b]:.0f}%" for b in bands] + [f"{hi.loc[m, b]:.0f}%" for b in bands] for m in MODELS]
+t = pd.DataFrame(rows, columns=["Model"] + [f"All, {b}" for b in bands] + [f"High, {b}" for b in bands])
+show(t, ("left",) + ("right",) * 6)
+```
+
+## Discussion
+
+### What the results support
+
+A few statements survive the corrections we applied. For these materials, bundled race, gender and age cues moved resume scores by less than 2 points on a 100-point scale in every model, and usually by less than 1 point. That is smaller than the difference between two runs of the same model on the same resume. The small shifts ran the same way in most models. African American, female and non-binary variants scored above White and male ones in at least seven of the eight, and the oldest band scored below the middle band in all eight. Granite 4.2 8B went the other way on race and gender, by a few tenths of a point. And Claude Sonnet 5.5 scored the oldest variants of highly qualified resumes several points below otherwise identical middle-aged variants.
+
+The direction of the race and gender effects agrees in part with other recent audits. Higher scores for women have been reported across several model families [@an2025], and a study of hypothetical decisions that included hiring found models favoring minority groups in some settings [@tamkin2023]. We did not see the lower scores for Black men that others report [@an2025; @wilson2024]. Our interaction tests had little power, though, our materials describe one senior role, and our cues go beyond names, so we would not say the earlier finding failed to replicate.
+
+### What the results do not show
+
+The results do not show that these models are unbiased. Equivalence within $\pm 2$ points describes mean scores under one prompt, one posting and 30 resumes. Another occupation, a looser prompt or a ranking task could behave differently, and the margin itself is a judgment call.
+
+Nor do they show that small mean differences are harmless. Hiring decisions are made at thresholds. A half-point shift changes nothing for most candidates but can decide the outcome for one at the cutoff, and over many applicants a steady half-point advantage for one group would change who is shortlisted. We measured scores, not selections, so we cannot say how large that effect would be. A steady advantage for any group is a departure from equal treatment of identical qualifications, whichever group it favors. Whether such a departure is acceptable is a legal and ethical question that depends on context, and this study does not address it.
+
+The age result needs the most care. The clearest effect in the data, the penalty in Claude Sonnet 5.5, coincides with a design feature of ours that gave older variants a dated, non-technical early career while most younger variants had no dated history at all. The model may be penalizing older applicants. It may instead have applied the posting's years-of-experience requirements strictly once the resume gave it a date to reason from, which is arguably what the prompt asked for. Or it may have read two decades in retail before an engineering career as a negative in itself, which would be a penalty on career changers. These explanations have different implications, and our data cannot choose among them. Race and gender are open to the same objection in a less visible form, because those cues bundle names with cities, schools and community lines, and any of these could carry the effect.
+
+Finally, the results do not rank the models. Differences between models were not significant after correction, and run conditions were not identical (one model ran at a default temperature, three had a few dropped responses, and one needed a higher output cap). The smallest effects came from DeepSeek 4.1 Flash, GPT-OSS 120B and Qwen 3.8 27B and the largest from the Claude models, but that is a description of this sample. The models with larger effects were also among those whose rationales engaged most with the resume's timeline. A model that reads a document closely has more chances to react to incidental details in it, so sensitivity of this kind may partly track how carefully a model reads.
+
+### Limitations
+
+The analysis was exploratory. Nothing was pre-registered, we ran roughly 250 tests, and the families we corrected within were defined after data collection.
+
+The study covers one job and 30 resumes, so inference extends only to resumes like these for this posting. The resumes were generated by an LLM from one prompt and may share stylistic features that real resumes lack. Resume high/05 does not fit its tier, and two high-tier resumes are about half the length of the rest.
+
+The cues are bundled and partly unvalidated. No effect can be attributed to a single cue. The Middle Eastern, non-binary and age-matched names were not drawn from validated lists, and we ran no manipulation check that models perceive the intended group from each variant. Age is confounded with timeline information, as described above. Job dates stayed as placeholders while degree years were real, an inconsistency that some rationales pointed out.
+
+Measurement was coarse in places. High-tier baselines sit near the top of the scale in most models, which compresses upward effects and may inflate the apparent drop from baseline to variant. Three samples per document is few when the within-document SD is 2 to 6 points, particularly for baselines; pairwise contrasts average over 270 variants per level and suffer less. One model ran without a fixed temperature, and one (Granite 4.2 8B) had 9% of its calls rerun under a higher output cap after the original cap cut them off.
+
+Hosted models change, so the results describe the versions served on the run dates in November 2026. The rationale analysis used a crude keyword match devised after seeing the results, and it treats stated reasons as informative about behavior, which they may not be.
+
+### Next steps
+
+The first step is a pre-registered confirmatory study. This audit generated specific hypotheses: positive contrasts for African American, female and non-binary cues in most models, a negative contrast for the oldest band, and an age-by-tier interaction in particular models. A follow-up should fix those hypotheses, the equivalence margin, the test for each and the multiplicity family before any model is called.
+
+The materials need the most work. Age should be crossed with the presence of the Earlier Career line, the content of that line should vary (earlier engineering roles as well as retail), and job dates should be filled in for all variants so that every age band presents a complete and consistent timeline. Conditions that vary one cue at a time (name only, school only, community line only) alongside the bundled condition would show which cue carries an effect. All names should come from validated lists, and each model should be asked in a separate call to infer the candidate's likely demographics from each variant, as a manipulation check. Resume high/05 should be replaced and resume length equalized within tier.
+
+More base resumes and more jobs would do more for power than more calls per resume, because resumes are the unit of analysis. At the variability we observed, detecting a 0.5-point contrast with 80% power would take roughly 25 to 170 base resumes for a typical contrast, depending on the model, and over 300 for the noisiest. Several occupations at different seniority levels would show whether the pattern is specific to an executive aerospace role. Ten or more samples of each name-free baseline would make the named-versus-baseline comparison usable.
+
+The outcome should move closer to the decision. Simulated shortlisting at realistic cutoffs, and rank-ordering within applicant pools, would yield selection-rate ratios, which is how adverse impact is assessed in practice. A panel of experienced recruiters scoring a subset of the same variants would show whether the models differ from current human practice, and in which direction.
+
+On the analysis side, a mixed-effects model with crossed random effects for resumes and model-by-resume combinations, fitted to individual samples, should be compared with the resume-level summaries used here. Robustness checks should vary the prompt: a less structured version, one without score anchors, temperature 0, and an explicit instruction to ignore protected characteristics. The rationales deserve proper coding by two human raters, blind to condition, with agreement reported.
+
+## Conclusion
+
+In this exploratory audit, eight language models scored resumes carrying different race, gender and age cues within about 2 points of one another on a 100-point scale. The small differences favored African American, female and non-binary variants and disfavored the oldest applicants. The age direction held in every model and the race and gender direction in all but one. The one sizable effect, an age penalty for strong candidates in Claude Sonnet 5.5, is entangled with a feature of our own materials. These findings justify a pre-registered study with cleaner age cues, more resumes and decision-level outcomes. They do not certify any of these models as safe for hiring, and they do not show any of them to be unsafe.
+
+## AI use disclosure {.unnumbered}
+
+This manuscript is an AI-generated draft. The statistical analysis code, figures, tables and text were produced with Anthropic Claude Fable 5.2, working from the study materials and the raw model outputs collected by the class. The authors designed the study and ran the scoring. The draft has not yet been fully verified by the authors: the analysis, the wording of every claim and the reference list should be checked before the work is cited or submitted. The drafting model comes from the same developer as two of the audited models (Claude Sonnet 5.5 and Claude Haiku 5.5), and readers should weigh the treatment of those models with that in mind.
+
+## Data and code availability {.unnumbered}
+
+The job posting, base resumes, cue table, variant generator, scoring harness, raw model outputs and the analysis code for this article are in the project repository (`github.com/smutchle/agentic_ai_bias`).
+
+## References {.unnumbered}
+
+::: {#refs}
+:::
+
+\appendix
+
+## Appendix: Supplementary tables {.unnumbered}
+
+@tbl-contrasts-full lists every pairwise contrast, @tbl-interactions the two-way interaction tests, and @tbl-tier the contrasts that varied by tier.
+
+```{python}
+#| label: tbl-contrasts-full
+#| tbl-pos: "!h"
+#| tbl-cap: "All 72 pairwise contrasts. Estimates are mean paired differences across 30 base resumes, in score points. Holm p-values are adjusted within model; q is the Benjamini--Hochberg false discovery rate across all 72 contrasts. TOST p is the Holm-adjusted p-value of the equivalence test against a margin of 2 points; values below 0.05 indicate equivalence within the margin."
+t = pd.DataFrame({
+    "Model": C.model.astype(str), "Contrast": C.contrast.str.replace(" - ", " minus "),
+    "Est.": C.est.map("{:+.2f}".format), "95% CI": [ci(a, b) for a, b in zip(C.lo, C.hi)],
+    "p": C.p.map(fp), "Holm p": C.p_holm_model.map(fp), "q": C.q_bh_all.map(fp),
+    "Wilcoxon p": C.p_wilcoxon.map(fp), "TOST p": C.p_tost_holm_model.map(fp)})
+t.loc[t.Model.duplicated(), "Model"] = ""
+show(t, ("left", "left") + ("right",) * 7, size="scriptsize")
+```
+
+```{python}
+#| label: tbl-interactions
+#| tbl-cap: "Two-way interactions between demographic factors within each model. Cells give the Hotelling F statistic on 4 and 26 degrees of freedom with its unadjusted p-value. None is significant after Holm correction across the 24 tests."
+i2 = I2.assign(cell=[f"{F:.2f} ({fp(p)})" for F, p in zip(I2.F, I2.p)])
+t = i2.pivot(index="model", columns="term", values="cell").loc[MODELS, ["Race x Gender", "Race x Age band", "Gender x Age band"]].reset_index()
+t.columns = ["Model", "Race by gender", "Race by age band", "Gender by age band"]
+show(t, ("left", "right", "right", "right"))
+```
+
+```{python}
+#| label: tbl-tier
+#| tbl-cap: "Contrasts whose size differed across qualification tiers at unadjusted p < 0.05 (one-way analysis of variance on per-resume differences, 10 resumes per tier). Only the Claude Sonnet 5.5 contrast between the oldest and middle bands is significant after Holm correction across all 72 tests."
+s = T[T.p < 0.05]
+t = pd.DataFrame({
+    "Model": s.model.astype(str), "Contrast": s.contrast.str.replace(" - ", " minus "),
+    "High": [f"{e:+.2f} ({ci(a, b, 1)})" for e, a, b in zip(s.high_est, s.high_lo, s.high_hi)],
+    "Medium": [f"{e:+.2f} ({ci(a, b, 1)})" for e, a, b in zip(s.medium_est, s.medium_lo, s.medium_hi)],
+    "Low": [f"{e:+.2f} ({ci(a, b, 1)})" for e, a, b in zip(s.low_est, s.low_lo, s.low_hi)],
+    "F": s.F.map("{:.1f}".format), "p": s.p.map(fp), "Holm p": s.p_holm_all.map(fp)})
+show(t, ("left", "left") + ("right",) * 6, size="footnotesize")
+```
